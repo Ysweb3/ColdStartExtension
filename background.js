@@ -25,8 +25,15 @@ function dropStale(sock) {
 
 function sendTabs(retry = true) {
      chrome.tabs.query({},(tabs) =>{
-        
-        const urls = tabs.map(tab => trimUrl(tab.url));
+
+        // one tab per music player: the one playing, else the first
+        const player = new Map();
+        for (const t of tabs) {
+            const k = musicKey(t.url);
+            if (k && (!player.has(k) || t.audible && !player.get(k).audible)) player.set(k, t);
+        }
+        const urls = tabs.filter(t => !musicKey(t.url) || player.get(musicKey(t.url)) === t)
+            .map(tab => trimUrl(tab.url));
         console.log("sending tabs:", urls);
         console.log("sending browser name:", getBrowserFromBrands());
         fetch("http://localhost:8765/tabs",{
@@ -62,9 +69,33 @@ function trimUrl(url) {
         return u.toString();
     } catch (e) { return url; }  // chrome://, about:blank etc. - leave as is
 }
+// a music player's tab keeps moving (track -> track, album -> playlist), so its saved url
+// rarely matches the tab still open and resume started a second player. Each service counts
+// as one tab: any page of it matches any other. Not youtube.com (videos, not a player) or
+// bandcamp (one store page per artist).
+// ponytail: hand-kept list of the big web players; add a host when one is missing.
+const MUSIC_HOSTS = [
+    /^open\.spotify\.com$/, /^music\.youtube\.com$/, /(^|\.)music\.apple\.com$/,
+    /^music\.amazon\./, /^(www\.|m\.)?soundcloud\.com$/, /^listen\.tidal\.com$/,
+    /^(www\.)?deezer\.com$/, /^(www\.)?pandora\.com$/, /^(www\.)?jiosaavn\.com$/,
+    /^(www\.)?gaana\.com$/, /^play\.qobuz\.com$/, /^(www\.)?audiomack\.com$/,
+    /^play\.anghami\.com$/, /^music\.yandex\./, /^y\.qq\.com$/, /^music\.163\.com$/,
+    /^(www\.)?iheart\.com$/, /^(www\.)?tunein\.com$/,
+];
+function musicKey(url) {
+    try {
+        const host = new URL(url).hostname;
+        return MUSIC_HOSTS.some(re => re.test(host)) ? "music:" + host.replace(/^(www|m)\./, "") : null;
+    } catch (e) { return null; }
+}
+// what tells two tabs apart: the music player for a music tab, else the trimmed url
+function tabKey(url) {
+    return musicKey(url) || trimUrl(url);
+}
 // open only the saved urls that are not already a tab, as background tabs in the window the
 // user is already in - the browser is running, so a fresh window is just clutter.
-// both sides go through trimUrl so urls saved before the trim still match.
+// both sides go through tabKey so urls saved before the trim still match, and a music
+// player already open counts as its saved tab whatever page it is on now.
 // ponytail: otherwise exact string match - a tab that navigated to a fragment/redirect won't match.
 // whatever is listening on :8765 can send {"open":[...]}, so only web pages are opened -
 // never javascript:, file: or chrome: - and never more than MAX_OPEN in one go.
@@ -75,9 +106,10 @@ function trimUrl(url) {
 const MAX_OPEN = 100;
 function openMissing(urls, sock) {
     opening = opening.then(async () => {
-        const open = new Set((await chrome.tabs.query({})).map(t => trimUrl(t.url)));
-        const missing = [...new Set(urls)]
-            .filter(u => typeof u === "string" && /^https?:\/\//i.test(u) && !open.has(trimUrl(u)))
+        const open = new Set((await chrome.tabs.query({})).map(t => tabKey(t.url)));
+        // add() marks each url taken as it goes, so a list naming a player twice opens it once
+        const missing = urls
+            .filter(u => typeof u === "string" && /^https?:\/\//i.test(u) && !open.has(tabKey(u)) && open.add(tabKey(u)))
             .slice(0, MAX_OPEN);
         console.log("resume: opening", missing.length, "of", urls.length, "urls");
         // the count goes now - the app waits 2s for it, not for every page to load
@@ -107,9 +139,9 @@ function loaded(tabId, capMs) {
 // ponytail: chrome.tabs.remove skips a page's "leave site?" prompt; pages that autosave
 // (docs, mail) are fine, an unsent form is not - ask before removing if that ever bites
 function closeTabs(urls) {
-    const want = new Set(urls.filter(u => typeof u === "string").map(trimUrl));
+    const want = new Set(urls.filter(u => typeof u === "string").map(tabKey));
     chrome.tabs.query({}, tabs => {
-        const ids = tabs.filter(t => want.has(trimUrl(t.url))).map(t => t.id);
+        const ids = tabs.filter(t => want.has(tabKey(t.url))).map(t => t.id);
         console.log("close: closing", ids.length, "tabs");
         if (ids.length) chrome.tabs.remove(ids);
     });
