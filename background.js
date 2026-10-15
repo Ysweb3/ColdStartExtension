@@ -145,7 +145,7 @@ async function getProfileId() {
 function connectWS() {
     //websocket for auto send to app
     // CONNECTING and CLOSING count as "a socket already exists" too - only checking OPEN
-    // let the 3s retry and the 1min alarm each open their own socket, so the app saw two
+    // let the 3s retry and the 30s alarm each open their own socket, so the app saw two
     // extensions from one browser and the orphan died later at its own pace.
     if (ws && ws.readyState !== WebSocket.CLOSED) return;
     if (profile === undefined) return;  // the read below connects once it lands
@@ -210,8 +210,9 @@ Promise.all([getProfile(), getProfileId()]).then(([p, id]) => { profileId = id; 
 chrome.runtime.onStartup.addListener(() => {});
 
 // MV3 kills this service worker after ~30s idle, dropping ws + its timers with it.
-// chrome.alarms is the only thing guaranteed to wake it back up on a schedule.
-chrome.alarms.create("ws-keepalive", { periodInMinutes: 1 });
+// chrome.alarms is the only thing guaranteed to wake it back up on a schedule. 30s is the
+// shortest period Chrome allows: it caps how long a resume's tabs wait for an asleep extension.
+chrome.alarms.create("ws-keepalive", { periodInMinutes: 0.5 });
 chrome.alarms.onAlarm.addListener((alarm) => {
     if (alarm.name === "ws-keepalive") connectWS();
 });
