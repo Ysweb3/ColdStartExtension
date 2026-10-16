@@ -191,7 +191,7 @@ function connectWS() {
     const sock = ws = new WebSocket("ws://localhost:8765/ws?browser=" + encodeURIComponent(getBrowserFromBrands() || "")
         + "&profile=" + encodeURIComponent(profile) + "&pid=" + encodeURIComponent(profileId));
     sock.onopen = () => {
-        console.log("connected to Resume Work");
+        console.log("connected to coldstart");
         startHeartbeat(sock);
     }
         

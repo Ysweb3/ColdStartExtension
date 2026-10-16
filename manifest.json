@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
-  "name": "Resume One",
+  "name": "coldstart",
   "version": "1.0",
-  "description": "Captures tabs for Resume One app",
+  "description": "Captures your open tabs for the coldstart desktop app",
 "host_permissions": ["<all_urls>"],
   "permissions": ["tabs", "alarms", "identity", "identity.email","storage"],
   "background": {
@@ -10,7 +10,7 @@
     "type": "module"
   },
   "action": {
-    "default_title": "Send tabs to Resume One",
+    "default_title": "Send tabs to coldstart",
     "default_popup": "popup.html"
   }
 }
