@@ -6,7 +6,9 @@ import assert from "node:assert/strict";
 const SRC = fs.readFileSync(new URL("../background.js", import.meta.url), "utf8");
 
 function load(tabs) {
-  const ext = { created: [], posted: null };
+  const ext = { created: [], posted: null, listeners: new Set() };
+  // pages load only when the test says so: every tab created so far finishes
+  ext.finish = () => ext.created.forEach((_, i) => [...ext.listeners].forEach(f => f(i + 1, { status: "complete" })));
   ext.ctx = vm.createContext({
     WebSocket: class { static OPEN = 1; static CLOSED = 3; send() {} },
     fetch: (_u, o) => { ext.posted = JSON.parse(o.body).urls; return Promise.resolve({ ok: true }); },
@@ -16,7 +18,7 @@ function load(tabs) {
       tabs: {
         query: (_q, cb) => cb ? cb(tabs) : Promise.resolve(tabs),
         create: ({ url }) => { ext.created.push(url); return Promise.resolve({ id: ext.created.length }); },
-        onUpdated: { addListener: f => setTimeout(() => f(ext.created.length, { status: "complete" })), removeListener() {} },
+        onUpdated: { addListener: f => ext.listeners.add(f), removeListener: f => ext.listeners.delete(f) },
       },
       identity: { getProfileUserInfo: async () => ({ email: "" }) },
       storage: { local: { get: async () => ({ rwProfileId: "x" }), set: async () => {} } },
@@ -53,6 +55,18 @@ vm.runInContext(`openMissing(${JSON.stringify([
 ])}, { readyState: 1, send() {} })`, ext.ctx);
 await settle();
 assert.deepEqual(ext.created, ["https://www.deezer.com/en/album/1", "https://b.test/"]);
+ext.finish();
+
+// resume loads four tabs at once, and starts the rest as those finish
+ext = load([]);
+const six = [1, 2, 3, 4, 5, 6].map(n => `https://c.test/${n}`);
+vm.runInContext(`openMissing(${JSON.stringify(six)}, { readyState: 1, send() {} })`, ext.ctx);
+await settle();
+assert.equal(ext.created.length, 4);
+ext.finish();
+await settle();
+assert.deepEqual(ext.created, six);
+ext.finish();
 
 // regional amazon and subdomain apple hosts are players too; plain sites are not
 const key = u => vm.runInContext(`musicKey(${JSON.stringify(u)})`, ext.ctx);
