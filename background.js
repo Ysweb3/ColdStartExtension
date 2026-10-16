@@ -101,9 +101,12 @@ function tabKey(url) {
 // never javascript:, file: or chrome: - and never more than MAX_OPEN in one go.
 // ponytail: 100 is a guess at "bigger than any real project"; raise it if one isn't.
 // replies {"opened":n} on the same socket so the app can say "already open" instead of "launched"
-// then opens one tab at a time: the next starts only once the last has loaded, so a big resume
-// is not thirty page loads at once. queued, so a second resume waits for the first to finish.
+// then opens OPEN_AT_ONCE tabs at a time: each slot starts its next tab once its last has loaded,
+// so a big resume is not thirty page loads at once, and one slow page holds up only its slot.
+// queued, so a second resume waits for the first to finish.
+// ponytail: 4 is a guess at "fast without choking the machine"; tune it if resumes still drag.
 const MAX_OPEN = 100;
+const OPEN_AT_ONCE = 4;
 function openMissing(urls, sock) {
     opening = opening.then(async () => {
         const open = new Set((await chrome.tabs.query({})).map(t => tabKey(t.url)));
@@ -114,10 +117,12 @@ function openMissing(urls, sock) {
         console.log("resume: opening", missing.length, "of", urls.length, "urls");
         // the count goes now - the app waits 2s for it, not for every page to load
         if (sock.readyState === WebSocket.OPEN) sock.send(JSON.stringify({ opened: missing.length }));
-        for (const url of missing) {
-            const tab = await chrome.tabs.create({ url, active: false });
-            await loaded(tab.id, 15000);
-        }
+        await Promise.all(Array.from({ length: OPEN_AT_ONCE }, async () => {
+            for (let url; (url = missing.shift()); ) {
+                const tab = await chrome.tabs.create({ url, active: false });
+                await loaded(tab.id, 15000);
+            }
+        }));
     }).catch(err => console.error("resume failed:", err));
 }
 // ponytail: a page that never finishes (or a tab closed mid-load) costs the full cap
