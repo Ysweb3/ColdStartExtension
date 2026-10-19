@@ -18,9 +18,34 @@ function stopHeartbeat(){
 function dropStale(sock) {
     console.log("app stopped answering, reconnecting");
     ws = null;  // its onclose now sees an orphan and stays quiet
+    showConnected(false);
     stopHeartbeat();
     sock.close();
     connectWS();
+}
+
+// the toolbar icon wears a green dot (the app's --live) while the app holds our socket.
+// Drawn onto the icon rather than a badge: a badge is a text pill, too loud for a status light.
+let dotOn = false;
+async function showConnected(on) {
+    dotOn = on;
+    if (!on) return chrome.action.setIcon({ path: { 16: "icons/icon-16.png", 32: "icons/icon-32.png" } });
+    const imageData = {};
+    for (const s of [16, 32]) {
+        const img = await createImageBitmap(await (await fetch(`icons/icon-${s}.png`)).blob());
+        const c = new OffscreenCanvas(s, s).getContext("2d");
+        c.drawImage(img, 0, 0);
+        const r = s * 0.2;
+        c.beginPath();
+        c.arc(s - r - s / 32, s - r - s / 32, r, 0, 2 * Math.PI);
+        c.fillStyle = "#8B9E7C";
+        c.fill();
+        c.lineWidth = s / 16;   // a tile-black ring keeps it apart from the orange play
+        c.strokeStyle = "#0B0C0D";
+        c.stroke();
+        imageData[s] = c.getImageData(0, 0, s, s);
+    }
+    if (dotOn) chrome.action.setIcon({ imageData });  // the socket may have dropped meanwhile
 }
 
 function sendTabs(retry = true) {
@@ -192,6 +217,7 @@ function connectWS() {
         + "&profile=" + encodeURIComponent(profile) + "&pid=" + encodeURIComponent(profileId));
     sock.onopen = () => {
         console.log("connected to coldstart");
+        showConnected(true);
         startHeartbeat(sock);
     }
         
@@ -216,6 +242,7 @@ function connectWS() {
     sock.onclose = () => {
         if (ws !== sock) return;  // an orphan closing must not schedule its own reconnect
         console.log("disconnected, retrying in 3s...");
+        showConnected(false);
         setTimeout(connectWS, 3000);  // retry after 3 seconds
         stopHeartbeat()
     };
