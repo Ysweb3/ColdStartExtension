@@ -44,7 +44,10 @@ body {
 .lede { font: 400 12px/1.4 Sora, system-ui, sans-serif; color: var(--tx2); }
 .lede b { font-weight: 400; color: var(--tx); }
 
-.tabs { display: flex; flex-direction: column; gap: 9px; overflow-y: auto; min-height: 0; }
+.tabs {
+  display: flex; flex-direction: column; gap: 9px; overflow-y: auto; min-height: 0;
+  scrollbar-width: thin; scrollbar-color: var(--ln2) transparent;
+}
 .tab {
   display: flex; align-items: center; gap: 9px; height: 34px; flex: 0 0 34px;
   padding: 0 10px; background: var(--g2); border: 1px solid var(--ln);
