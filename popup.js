@@ -3,7 +3,6 @@
 // uses, so the app needs no new /tabs handling.
 
 const APP = "http://localhost:8765";
-const SHOWN = 3; // the design shows three and folds the rest
 
 const els = {
   dot: document.getElementById("dot"),
@@ -54,8 +53,7 @@ function render() {
     els.lede.replaceChildren(`Send puts the ${kept.length} ticked tabs into `, b, ` now.`);
   }
 
-  const visible = expanded ? urls : urls.slice(0, SHOWN);
-  els.tabs.replaceChildren(...visible.map(url => {
+  const rows = urls.map(url => {
     const row = document.createElement("div");
     row.className = dropped.has(url) ? "tab off" : "tab";
     row.title = url;
@@ -79,9 +77,22 @@ function render() {
       [...els.tabs.children].find(r => r.title === url)?.focus();
     });
     return row;
-  }));
+  });
 
-  const hidden = urls.length - visible.length;
+  // Rows fill the space; only when they overflow does the "N more" row take the last slot.
+  // Expanded shows every tab and the list scrolls. Measured, so a two-line lede still fits.
+  const top = els.tabs.scrollTop;
+  els.tabs.replaceChildren(...rows);
+  els.more.hidden = true;
+  let shown = rows.length;
+  if (!expanded && els.tabs.scrollHeight > els.tabs.clientHeight) {
+    // 34px rows + 9px gaps; the more row is 44px + its 9px gap
+    shown = Math.max(1, Math.floor((els.tabs.clientHeight - 44) / 43));
+    els.tabs.replaceChildren(...rows.slice(0, shown));
+  }
+  els.tabs.scrollTop = top;
+
+  const hidden = urls.length - shown;
   els.more.hidden = hidden === 0 && !expanded;
   els.moreLabel.textContent = expanded ? "Show fewer" : `${hidden} more tabs`;
   els.excluded.textContent = dropped.size ? `${dropped.size} excluded` : "";
