@@ -30,7 +30,8 @@ History was not changed. Anything listed here stays in history until it is rewri
 
 - **Font licences.** `fonts/` ships IBM Plex (and Sora and Space Mono in older commits). These
   are under the SIL Open Font License 1.1, which requires the licence text to ship with the
-  fonts. Add IBM's `LICENSE.txt` from github.com/IBM/plex as `fonts/OFL.txt`.
+  fonts. Done: `fonts/OFL.txt` (IBM's `LICENSE.txt` from github.com/IBM/plex, unchanged) now
+  sits next to them, so it ships with every copy of the extension.
 - **Broad host permission.** `manifest.json` asks for `"host_permissions": ["<all_urls>"]`.
   The code only talks to `localhost:8765`, so `http://localhost:8765/*` may be enough. Store
   reviewers and users see `<all_urls>` as "read and change all your data on all websites".
