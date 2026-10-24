@@ -19,6 +19,7 @@ const els = {
 let urls = [];
 const dropped = new Set();
 let expanded = false;
+let justTicked = null; // the url whose tick should draw itself in on this render
 let project = "";
 let running = null; // null until GET /project answers or fails
 
@@ -65,12 +66,15 @@ function render() {
     row.addEventListener("keydown", e => {
       if (e.key === " " || e.key === "Enter") { e.preventDefault(); row.click(); }
     });
+    // the app's CHECKBOX glyph (Icons.java); only the row just ticked draws its tick in
+    if (url === justTicked) row.classList.add("drawn");
     row.innerHTML =
-      '<span class="box"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" ' +
-      'stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg></span>' +
+      '<svg class="ico box" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="3.2"/>' +
+      '<path class="tick" d="M7.4 12.2 L10.8 15.6 L16.8 8.6"/></svg>' +
       '<span class="url"></span>';
     row.querySelector(".url").textContent = tidy(url);
     row.addEventListener("click", () => {
+      justTicked = dropped.has(url) ? url : null;
       dropped.has(url) ? dropped.delete(url) : dropped.add(url);
       render();
       // render() rebuilt the rows; keep the keyboard where it was
@@ -86,14 +90,16 @@ function render() {
   els.more.hidden = true;
   let shown = rows.length;
   if (!expanded && els.tabs.scrollHeight > els.tabs.clientHeight) {
-    // 34px rows + 9px gaps; the more row is 44px + its 9px gap
-    shown = Math.max(1, Math.floor((els.tabs.clientHeight - 44) / 43));
+    // 34px rows + 8px gaps; the more row is 48px + its 8px gap
+    shown = Math.max(1, Math.floor((els.tabs.clientHeight - 48) / 42));
     els.tabs.replaceChildren(...rows.slice(0, shown));
   }
   els.tabs.scrollTop = top;
 
   const hidden = urls.length - shown;
   els.more.hidden = hidden === 0 && !expanded;
+  els.more.classList.toggle("open", expanded);
+  justTicked = null;
   els.moreLabel.textContent = expanded ? "Show fewer" : `${hidden} more tabs`;
   els.excluded.textContent = dropped.size ? `${dropped.size} excluded` : "";
   els.send.disabled = kept.length === 0 || !running || !project;
@@ -144,6 +150,7 @@ async function connect() {
     project = (await res.text()).trim();
     running = true;
     els.dot.classList.add("live");
+    els.conn.classList.add("live");
     els.conn.textContent = "connected";
   } catch (err) {
     running = false;

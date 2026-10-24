@@ -38,10 +38,10 @@ async function showConnected(on) {
         const r = s * 0.2;
         c.beginPath();
         c.arc(s - r - s / 32, s - r - s / 32, r, 0, 2 * Math.PI);
-        c.fillStyle = "#8B9E7C";
+        c.fillStyle = "#5DB075";   // DESIGN.md live-green
         c.fill();
-        c.lineWidth = s / 16;   // a tile-black ring keeps it apart from the orange play
-        c.strokeStyle = "#0B0C0D";
+        c.lineWidth = s / 16;   // an ink-900 ring keeps it apart from the orange play
+        c.strokeStyle = "#0F1012";
         c.stroke();
         imageData[s] = c.getImageData(0, 0, s, s);
     }
