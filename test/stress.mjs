@@ -85,7 +85,10 @@ function loadExtension(port, tabs = ["https://a.test/", "https://b.test/", "chro
   const timer = (fn, ms, every) => { const h = (every ? setInterval : setTimeout)(fn, ms * SCALE); ext.timers.add(h); return h; };
   vm.runInNewContext(SRC, {
     WebSocket: WS,
-    fetch: (u, o) => fetch(to(u), o),
+    // icons/ is the green connected dot's: drawn on a canvas nobody here looks at
+    fetch: (u, o) => u.startsWith("icons/") ? Promise.resolve(new Response("")) : fetch(to(u), o),
+    createImageBitmap: async () => ({}),
+    OffscreenCanvas: class { getContext() { return new Proxy({}, { get: () => () => {} }); } },
     navigator: { userAgentData: { brands: [{ brand: "Google Chrome" }] } },
     console: { log: (...a) => ext.logs.push(a.join(" ")), error: (...a) => ext.errors.push(a.join(" ")) },
     setTimeout: (f, ms) => timer(f, ms), setInterval: (f, ms) => timer(f, ms, true), clearTimeout, clearInterval,
@@ -101,6 +104,7 @@ function loadExtension(port, tabs = ["https://a.test/", "https://b.test/", "chro
         onUpdated: { addListener: f => ext.onUpdated.add(f), removeListener: f => ext.onUpdated.delete(f) },
       },
       identity: { getProfileUserInfo: async () => ({ email: "" }) },
+      action: { setIcon() {} },
       runtime: { onStartup: { addListener() {} } },
       alarms: { create() {}, onAlarm: { addListener: f => ext.alarm = f } },
     },
@@ -139,7 +143,7 @@ await scenario("connect, heartbeat, capture -> POST /tabs", async (app, load) =>
   app.send("capture");
   await until(() => app.posts.length, 2000);
   const post = JSON.parse(app.posts[0] ?? "{}");
-  const ok = app.connects[0] === "/ws?browser=Chrome&profile=" && app.msgs.includes("Heartbeat") && post.browser === "Chrome" && post.urls?.length === 3;
+  const ok = app.connects[0] === "/ws?browser=Chrome&profile=&pid=" && app.msgs.includes("Heartbeat") && post.browser === "Chrome" && post.urls?.length === 3;
   return [ok, `url=${app.connects[0]} heartbeat=${app.msgs.includes("Heartbeat")} post=${app.posts[0]}`];
 });
 
