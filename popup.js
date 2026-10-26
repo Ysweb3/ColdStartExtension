@@ -1,8 +1,9 @@
-// Popup for artboard 1j. Lists the open tabs, lets the user drop any of them,
-// and POSTs the rest to the desktop app on :8765 — the same contract background.js
-// uses, so the app needs no new /tabs handling.
+// Popup for artboard 1j. Lists the open tabs; unticking one ignores it, so checkpoints
+// leave it out (background.js reads the same list from storage before every capture).
+// "Open coldstart" asks the running app forward over the same POST /focus a second launch uses.
 
 const APP = "http://localhost:8765";
+const IGNORED = "ignoredTabs"; // chrome.storage.local key, shared with background.js
 
 const els = {
   dot: document.getElementById("dot"),
@@ -11,57 +12,54 @@ const els = {
   more: document.getElementById("more"),
   moreLabel: document.getElementById("moreLabel"),
   excluded: document.getElementById("excluded"),
-  send: document.getElementById("send"),
+  ignore: document.getElementById("ignore"),
+  ignoreLabel: document.getElementById("ignoreLabel"),
+  open: document.getElementById("open"),
   status: document.getElementById("status"),
   conn: document.getElementById("conn"),
 };
 
 let urls = [];
-const dropped = new Set();
+let active = ""; // the tab the popup was opened over
+// ponytail: keyed by url, so a page stays ignored until un-ignored, even after it was closed
+let ignored = new Set();
 let expanded = false;
 let justTicked = null; // the url whose tick should draw itself in on this render
 let project = "";
 let running = null; // null until GET /project answers or fails
 
-// Same brand detection as background.js — the app buckets urls per browser, so the
-// popup has to label its post the same way or it lands under a second key.
-function browserName() {
-  if (navigator.userAgentData && navigator.userAgentData.brands) {
-    const brands = navigator.userAgentData.brands.map(b => b.brand.toLowerCase());
-    if (brands.includes("microsoft edge")) return "Edge";
-    if (brands.includes("opera")) return "Opera";
-    if (brands.includes("google chrome")) return "Chrome";
-    if (brands.includes("brave")) return "brave";
-  }
-}
-
 function tidy(url) {
   return url.replace(/^https?:\/\//, "").replace(/\/$/, "");
 }
 
+function toggle(url) {
+  justTicked = ignored.has(url) ? url : null;
+  ignored.has(url) ? ignored.delete(url) : ignored.add(url);
+  chrome.storage.local.set({ [IGNORED]: [...ignored] });
+  render();
+}
+
 function render() {
-  const kept = urls.filter(u => !dropped.has(u));
-  // Send writes now (POST /tabs) - not "on the next checkpoint" - into the project open in
-  // the app; whether it replaces or adds follows that project's last checkpoint mode.
-  // textContent, not innerHTML: the name is the user's text.
+  const kept = urls.filter(u => !ignored.has(u));
+  // textContent, not innerHTML: the name is the user's text
   if (running === false) {
-    els.lede.textContent = "coldstart isn't running. Open it, then open this again.";
+    els.lede.textContent = "coldstart isn't running. Start it, then open this again.";
   } else if (running && !project) {
-    els.lede.textContent = "Open a project in coldstart to send tabs to it.";
+    els.lede.textContent = "Open a project in coldstart to checkpoint these tabs.";
   } else {
     const b = document.createElement("b");
     b.textContent = project || "…";
-    els.lede.replaceChildren(`Send puts the ${kept.length} ticked tabs into `, b, ` now.`);
+    els.lede.replaceChildren(`Checkpoints save the ${kept.length} ticked tabs into `, b, `.`);
   }
 
   const rows = urls.map(url => {
     const row = document.createElement("div");
-    row.className = dropped.has(url) ? "tab off" : "tab";
+    row.className = ignored.has(url) ? "tab off" : "tab";
     row.title = url;
     // a real checkbox to keyboards and screen readers, not just a clickable div
     row.tabIndex = 0;
     row.setAttribute("role", "checkbox");
-    row.setAttribute("aria-checked", String(!dropped.has(url)));
+    row.setAttribute("aria-checked", String(!ignored.has(url)));
     row.setAttribute("aria-label", tidy(url));
     row.addEventListener("keydown", e => {
       if (e.key === " " || e.key === "Enter") { e.preventDefault(); row.click(); }
@@ -74,9 +72,7 @@ function render() {
       '<span class="url"></span>';
     row.querySelector(".url").textContent = tidy(url);
     row.addEventListener("click", () => {
-      justTicked = dropped.has(url) ? url : null;
-      dropped.has(url) ? dropped.delete(url) : dropped.add(url);
-      render();
+      toggle(url);
       // render() rebuilt the rows; keep the keyboard where it was
       [...els.tabs.children].find(r => r.title === url)?.focus();
     });
@@ -101,8 +97,12 @@ function render() {
   els.more.classList.toggle("open", expanded);
   justTicked = null;
   els.moreLabel.textContent = expanded ? "Show fewer" : `${hidden} more tabs`;
-  els.excluded.textContent = dropped.size ? `${dropped.size} excluded` : "";
-  els.send.disabled = kept.length === 0 || !running || !project;
+  const off = urls.length - kept.length;
+  els.excluded.textContent = off ? `${off} ignored` : "";
+
+  els.ignore.disabled = !active;
+  els.ignoreLabel.textContent = ignored.has(active) ? "Stop ignoring" : "Ignore this tab";
+  els.open.disabled = running === false;
 }
 
 els.more.addEventListener("click", () => {
@@ -113,32 +113,16 @@ els.more.addEventListener("keydown", e => {
   if (e.key === " " || e.key === "Enter") { e.preventDefault(); els.more.click(); }
 });
 
-// which profile these tabs are from, as background.js says it: the email when the browser
-// gives one, and the id background.js keeps in this profile's storage (the popup shares it).
-// Without them the app filed popup sends under plain "Chrome", apart from the profile's list.
-async function whoAmI() {
-  let profile = "", pid = "";
-  try { profile = (await chrome.identity.getProfileUserInfo({ accountStatus: "ANY" })).email || ""; } catch (e) {}
-  try { pid = (await chrome.storage.local.get("rwProfileId")).rwProfileId || ""; } catch (e) {}
-  return { profile, pid };
-}
+els.ignore.addEventListener("click", () => toggle(active));
 
-els.send.addEventListener("click", async () => {
-  const kept = urls.filter(u => !dropped.has(u));
-  els.send.disabled = true;
-  els.status.textContent = "sending…";
+els.open.addEventListener("click", async () => {
   els.status.classList.remove("bad");
   try {
-    await fetch(`${APP}/tabs`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ browser: browserName(), ...(await whoAmI()), urls: kept }),
-    });
-    els.status.textContent = `sent ${kept.length} tabs to ${project}`;
+    await fetch(`${APP}/focus`, { method: "POST" });
+    window.close();
   } catch (err) {
     els.status.textContent = "couldn't reach coldstart · is it still open?";
     els.status.classList.add("bad");
-    els.send.disabled = false;
   }
 });
 
@@ -159,8 +143,12 @@ async function connect() {
   render();
 }
 
-chrome.tabs.query({}, tabs => {
+(async () => {
+  ignored = new Set((await chrome.storage.local.get(IGNORED))[IGNORED] || []);
+  const tabs = await chrome.tabs.query({});
   urls = tabs.map(t => t.url).filter(Boolean);
+  // currentWindow is the window the popup was opened from
+  active = (await chrome.tabs.query({ active: true, currentWindow: true }))[0]?.url || "";
   render();
   connect();
-});
+})();

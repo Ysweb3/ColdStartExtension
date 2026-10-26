@@ -49,7 +49,11 @@ async function showConnected(on) {
 }
 
 function sendTabs(retry = true) {
-     chrome.tabs.query({},(tabs) =>{
+     chrome.tabs.query({}, async (tabs) =>{
+        // tabs the popup ignored never reach a checkpoint; no storage (the tests' stub) = none ignored
+        let ignored = [];
+        try { ignored = (await chrome.storage.local.get("ignoredTabs")).ignoredTabs || []; } catch (e) {}
+        tabs = tabs.filter(t => !ignored.includes(t.url));
 
         // one tab per music player: the one playing, else the first
         const player = new Map();
