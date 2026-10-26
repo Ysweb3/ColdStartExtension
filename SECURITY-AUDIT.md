@@ -35,4 +35,5 @@ History was not changed. Anything listed here stays in history until it is rewri
 - **Broad host permission.** `manifest.json` asks for `"host_permissions": ["<all_urls>"]`.
   The code only talks to `localhost:8765`, so `http://localhost:8765/*` may be enough. Store
   reviewers and users see `<all_urls>` as "read and change all your data on all websites".
-  Test before narrowing it.
+  Done: narrowed to `http://localhost:8765/*`. Tab urls come from the `tabs` permission and
+  the WebSocket needs no host permission.
