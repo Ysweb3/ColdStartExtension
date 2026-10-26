@@ -14,8 +14,8 @@ it. It does nothing on its own: **the coldstart desktop app must be running.**
   of the tabs open in this browser profile.
 - **Reopens tabs.** On Resume it opens the saved tabs that are not already open, four at a time,
   in the background. Only web pages are opened, never `file:`, `javascript:` or browser pages.
-- **Send tabs by hand.** Click the toolbar icon to see your open tabs, untick any you don't
-  want, and send the rest to the project open in coldstart.
+- **Ignores tabs you pick.** Click the toolbar icon to see your open tabs. Untick any you
+  want checkpoints to leave out, or use Ignore this tab. Open coldstart brings the app forward.
 - **Closes tabs** after a "Checkpoint & close", but only the ones it just saved.
 - **Keeps one tab per music player** (Spotify, YouTube Music and others), so resuming doesn't
   start a second player.
