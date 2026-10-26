@@ -56,6 +56,7 @@ body {
 }
 .lede { font: 400 12px/1.45 var(--sans); color: var(--bone-2); }
 .lede b { font-weight: 600; color: var(--bone); }
+.hint { font: 400 12px/1.45 var(--sans); color: var(--bone-3-text); margin-top: -6px; }
 
 .tabs {
   display: flex; flex-direction: column; gap: 8px; overflow-y: auto; min-height: 0;
@@ -108,7 +109,8 @@ body {
 .ignore:hover:not(:disabled) { background: var(--ink-750); }
 .open { background: var(--bone); color: var(--ink-900); }
 .open:hover:not(:disabled) { background: #D9D2CD; }
-.status { font: 400 12px/1.4 var(--mono); color: var(--bone-3-text); min-height: 17px; }
+.status { font: 400 12px/1.4 var(--mono); color: var(--bone-3-text); }
+.status:empty { display: none; }   /* only an error speaks here, so nothing sits under the buttons */
 .status.bad { color: var(--brick-text); }
 
 /* keyboard focus: the neutral Active ring. A button's notch would clip an outline, so its ring is inset. */
@@ -140,6 +142,7 @@ body {
 
   <div class="body">
     <span class="lede" id="lede">Reading tabs…</span>
+    <span class="hint">Uncheck tabs to ignore them too.</span>
     <div class="tabs" id="tabs"></div>
     <div class="more" id="more" role="button" tabindex="0" hidden>
       <svg class="ico" width="14" height="14" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M2 12h20"/><path d="M12 2a15 15 0 0 1 0 20a15 15 0 0 1 0-20"/></svg>
