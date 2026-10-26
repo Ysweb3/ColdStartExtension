@@ -1,8 +1,8 @@
 # background.js against fake apps in a vm, no browser. The full stack with the real app runs
-# from the ResumeOne repo's own workflow.
+# from the ColdStart repo's own workflow.
 name: test
 
-on: [push, workflow_dispatch]
+on: [push, pull_request, workflow_dispatch]
 
 jobs:
   test:

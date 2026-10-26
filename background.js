@@ -63,8 +63,6 @@ function sendTabs(retry = true) {
         }
         const urls = tabs.filter(t => !musicKey(t.url) || player.get(musicKey(t.url)) === t)
             .map(tab => trimUrl(tab.url));
-        console.log("sending tabs:", urls);
-        console.log("sending browser name:", getBrowserFromBrands());
         fetch("http://localhost:8765/tabs",{
             method:"POST",
             headers:{
@@ -268,7 +266,6 @@ function getBrowserFromBrands() {
 // manual capture now lives in popup.html: chrome.action.onClicked never fires once
 // the action has a default_popup, so the old listener here would be dead code.
 // The socket path below is untouched - the app still pushes "capture" to sendTabs().
-console.log(getBrowserFromBrands());
 
 // profile is set last: connectWS waits on it, so the id is in place before the first socket
 Promise.all([getProfile(), getProfileId()]).then(([p, id]) => { profileId = id; profile = p; connectWS(); });
