@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "coldstart",
-  "version": "1.0",
+  "version": "1.0.0",
   "description": "Captures your open tabs for the coldstart desktop app",
 "host_permissions": ["<all_urls>"],
   "permissions": ["tabs", "alarms", "identity", "identity.email","storage"],
