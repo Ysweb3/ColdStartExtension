@@ -101,6 +101,7 @@ function render() {
   els.excluded.textContent = off ? `${off} ignored` : "";
 
   els.ignore.disabled = !active;
+  els.ignore.classList.toggle("on", ignored.has(active));
   els.ignoreLabel.textContent = ignored.has(active) ? "Stop ignoring" : "Ignore this tab";
   els.open.disabled = running === false;
 }
@@ -150,5 +151,6 @@ async function connect() {
   // currentWindow is the window the popup was opened from
   active = (await chrome.tabs.query({ active: true, currentWindow: true }))[0]?.url || "";
   render();
+  requestAnimationFrame(() => els.ignore.classList.add("ready"));
   connect();
 })();
