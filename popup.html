@@ -1,7 +1,8 @@
 <!DOCTYPE html>
 <!-- Extension popup — artboard 1j, on the app's 5a tokens (DESIGN.md, "The extension").
      Adding this replaces chrome.action.onClicked (Chrome suppresses that once a
-     popup is set), so "Send tabs now" here is the manual capture path. -->
+     popup is set). Unticked tabs are ignored by checkpoints; the footer ignores the
+     current tab or brings the app forward. -->
 <html>
 <head>
 <meta charset="utf-8">
@@ -37,7 +38,7 @@ body {
 
 .bar {
   height: 38px; flex: 0 0 38px; display: flex; align-items: center; gap: 8px;
-  padding: 0 12px; background: var(--ink-900); border-bottom: 1px solid var(--line);
+  padding: 8px 12px; background: var(--ink-900); border-bottom: 1px solid var(--line);
 }
 .mark { width: 14px; height: 14px; flex: 0 0 14px; }
 .wordmark { font: 700 12px/1.2 var(--sans); color: var(--bone); }
@@ -55,6 +56,8 @@ body {
 }
 .lede { font: 400 12px/1.45 var(--sans); color: var(--bone-2); }
 .lede b { font-weight: 600; color: var(--bone); }
+.hint { font: 400 12px/1.45 var(--sans); color: var(--bone-2); margin-top: -6px; }
+.hint b { font-weight: 600; color: var(--bone); }
 
 .tabs {
   display: flex; flex-direction: column; gap: 8px; overflow-y: auto; min-height: 0;
@@ -94,26 +97,35 @@ body {
   padding: 12px; display: flex; flex-direction: column; gap: 8px;
   border-top: 1px solid var(--line);
 }
-/* Send writes the project's checkpoint tabs, so it is the checkpoint button */
-.send {
+.actions { display: flex; gap: 8px; }
+.btn {
   display: flex; align-items: center; justify-content: center; gap: 8px;
-  width: 100%; height: 34px; border: 0; padding: 0 14px;
-  background: var(--checkpoint-blue); color: var(--bone);
-  font: 600 13px/1 var(--sans); cursor: pointer;
+  flex: 1; min-width: 0; height: 34px; border: 0; padding: 0 12px;
+  font: 600 13px/1 var(--sans); cursor: pointer; white-space: nowrap;
 }
-.send:hover:not(:disabled) { background: var(--checkpoint-blue-bright); color: var(--ground); }
-.send:disabled { opacity: .45; cursor: default; }
-.status { font: 400 12px/1.4 var(--mono); color: var(--bone-3-text); min-height: 17px; }
+.btn:disabled { opacity: .45; cursor: default; }
+/* neither checkpoints nor resumes, so neither blue nor orange: a quiet edge for Ignore,
+   the app's bone neutral main action (.btn-primary) for Open, darker under the pointer */
+.ignore { background: var(--ink-800); color: var(--bone); box-shadow: inset 0 0 0 1px var(--line-strong); }
+.ignore:hover:not(:disabled) { background: var(--ink-750); }
+.ignore .slash { stroke-dasharray: 26; stroke-dashoffset: 0; }
+.ignore.on .slash { stroke-dashoffset: 26; }
+.open { background: var(--bone); color: var(--ink-900); }
+.open:hover:not(:disabled) { background: #D9D2CD; }
+.status { font: 400 12px/1.4 var(--mono); color: var(--bone-3-text); }
+.status:empty { display: none; }   /* only an error speaks here, so nothing sits under the buttons */
 .status.bad { color: var(--brick-text); }
 
-/* keyboard focus: the neutral Active ring. The send button's notch would clip an outline, so its ring is inset. */
+/* keyboard focus: the neutral Active ring. A button's notch would clip an outline, so its ring is inset. */
 .tab:focus-visible, .more:focus-visible { outline: 2px solid var(--active); outline-offset: 2px; }
-.send:focus-visible { outline: none; box-shadow: inset 0 0 0 2px var(--active); }
+.btn:focus-visible { outline: none; box-shadow: inset 0 0 0 2px var(--active); }
 
 @media (prefers-reduced-motion: no-preference) {
-  .tab, .more, .send { transition: background-color 140ms cubic-bezier(.2,.8,.3,1), border-color 140ms cubic-bezier(.2,.8,.3,1); }
-  .send:active:not(:disabled), .more:active { transform: scale(.985); transition-duration: 80ms; }
+  .tab, .more, .btn { transition: background-color 140ms cubic-bezier(.2,.8,.3,1), border-color 140ms cubic-bezier(.2,.8,.3,1); }
+  .btn:active:not(:disabled), .more:active { transform: scale(.985); transition-duration: 80ms; }
   .more .chev { transition: transform 220ms cubic-bezier(.2,.8,.3,1); }
+  /* only once the popup has settled, so opening it over an ignored tab doesn't play the lift */
+  .ignore.ready .slash { transition: stroke-dashoffset 360ms cubic-bezier(.16,1,.3,1); }
   /* the tick draws itself in, as the app's does */
   .tab.drawn .tick { stroke-dasharray: 15; animation: draw 360ms cubic-bezier(.16,1,.3,1); }
   @keyframes draw { from { stroke-dashoffset: 15; } to { stroke-dashoffset: 0; } }
@@ -135,6 +147,7 @@ body {
 
   <div class="body">
     <span class="lede" id="lede">Reading tabs…</span>
+    <span class="hint"><b>Uncheck</b> tabs to ignore them too.</span>
     <div class="tabs" id="tabs"></div>
     <div class="more" id="more" role="button" tabindex="0" hidden>
       <svg class="ico" width="14" height="14" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M2 12h20"/><path d="M12 2a15 15 0 0 1 0 20a15 15 0 0 1 0-20"/></svg>
@@ -146,10 +159,17 @@ body {
   </div>
 
   <div class="foot">
-    <button class="send cut" id="send">
-      <svg class="ico" width="16" height="16" viewBox="0 0 24 24"><path d="M19 21 L12 17 L5 21 V5 A2 2 0 0 1 7 3 H17 A2 2 0 0 1 19 5 Z M12 7 V13 M15 10 H9"/></svg>
-      Send tabs now
-    </button>
+    <div class="actions">
+      <button class="btn ignore cut" id="ignore">
+        <!-- an eye, struck through while the tab is still captured; the slash lifts off once it's ignored -->
+        <svg class="ico" width="16" height="16" viewBox="0 0 24 24"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/><path class="slash" d="M3 3l18 18"/></svg>
+        <span id="ignoreLabel">Ignore this tab</span>
+      </button>
+      <button class="btn open cut" id="open">
+        <svg class="ico" width="16" height="16" viewBox="0 0 24 24"><path d="M15 3h6v6M10 14 21 3M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/></svg>
+        Open coldstart
+      </button>
+    </div>
     <span class="status" id="status" role="status" aria-live="polite"></span>
   </div>
 

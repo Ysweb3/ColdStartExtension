@@ -1,5 +1,12 @@
 # Changelog
 
+## Unreleased
+
+### Changed
+
+- Popup: unticking a tab now ignores it in every checkpoint, instead of picking what to send.
+  Its Send button is replaced by Ignore this tab and Open coldstart.
+
 ## 1.0.0 - 2026-10-24
 
 First public release. Built from the git history since August 2026.
