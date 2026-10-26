@@ -3,7 +3,7 @@
   "name": "coldstart",
   "version": "1.0.0",
   "description": "Captures your open tabs for the coldstart desktop app",
-"host_permissions": ["<all_urls>"],
+  "host_permissions": ["http://localhost:8765/*"],
   "permissions": ["tabs", "alarms", "identity", "identity.email","storage"],
   "background": {
     "service_worker": "background.js",
