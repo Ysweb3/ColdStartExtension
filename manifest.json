@@ -16,7 +16,7 @@
     "128": "icons/icon-128.png"
   },
   "action": {
-    "default_title": "Send tabs to coldstart",
+    "default_title": "coldstart",
     "default_popup": "popup.html",
     "default_icon": {
       "16": "icons/icon-16.png",
