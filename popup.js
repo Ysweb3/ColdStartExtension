@@ -41,15 +41,14 @@ function toggle(url) {
 
 function render() {
   const kept = urls.filter(u => !ignored.has(u));
-  // textContent, not innerHTML: the name is the user's text
   if (running === false) {
     els.lede.textContent = "coldstart isn't running. Start it, then open this again.";
   } else if (running && !project) {
     els.lede.textContent = "Open a project in coldstart to checkpoint these tabs.";
   } else {
     const b = document.createElement("b");
-    b.textContent = project || "…";
-    els.lede.replaceChildren(`Checkpoints save the ${kept.length} ticked tabs into `, b, `.`);
+    b.textContent = "Uncheck";
+    els.lede.replaceChildren(b, " tabs to ignore them.");
   }
 
   const rows = urls.map(url => {
